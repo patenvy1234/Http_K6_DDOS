@@ -1,0 +1,250 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Azure Monitor Prometheus",
+      "description": "Azure Monitor Workspace Prometheus datasource",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "title": "DDOS Load Test — Overview",
+  "uid": "ddos-overview",
+  "tags": ["ddos"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "label": "Datasource",
+        "current": {}
+      },
+      {
+        "name": "runid",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(k6_http_reqs_total, runid)",
+        "label": "Run ID",
+        "multi": false,
+        "includeAll": false,
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Achieved RPS",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 16, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "lineWidth": 2 } }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(k6_http_reqs_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "Achieved RPS",
+          "refId": "A"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 2,
+      "title": "Error Rate (%)",
+      "type": "gauge",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * avg(k6_http_req_failed_rate{runid=~\"$runid\"})",
+          "legendFormat": "Error %",
+          "refId": "A"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "title": "Active VUs",
+      "type": "stat",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        {
+          "expr": "sum(k6_vus{runid=~\"$runid\"})",
+          "legendFormat": "VUs",
+          "refId": "A"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "title": "Total Requests",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        { "expr": "sum(k6_http_reqs_total{runid=~\"$runid\"})", "legendFormat": "Total", "refId": "A" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "title": "Bytes Sent/s",
+      "type": "stat",
+      "gridPos": { "x": 20, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        { "expr": "sum(rate(k6_data_sent_total{runid=~\"$runid\"}[30s]))", "legendFormat": "Bytes/s", "refId": "A" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "title": "Latency — p50 / p95 / p99",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [
+        {
+          "expr": "avg(k6_http_req_duration_p50{runid=~\"$runid\"})",
+          "legendFormat": "p50 latency",
+          "refId": "A"
+        },
+        {
+          "expr": "avg(k6_http_req_duration_p95{runid=~\"$runid\"})",
+          "legendFormat": "p95 latency",
+          "refId": "B"
+        },
+        {
+          "expr": "avg(k6_http_req_duration_p99{runid=~\"$runid\"})",
+          "legendFormat": "p99 latency",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "RPS by Region",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (region)(rate(k6_http_reqs_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "{{region}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Status Code Mix",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (status)(rate(k6_http_reqs_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "HTTP {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Data Received/s",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        {
+          "expr": "sum(rate(k6_data_received_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "Received",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(k6_data_sent_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "Sent",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Worker Saturation — Dropped Iterations/s",
+      "description": "k6 increments dropped_iterations when its arrival-rate scheduler can't allocate a free VU in time. Non-zero ⇒ at least one VM is CPU/port/conntrack-bound and the autoscaler will add capacity.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "iops",
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": { "fillOpacity": 30, "drawStyle": "bars" }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(k6_dropped_iterations_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "Total dropped/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (instance)(rate(k6_dropped_iterations_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "{{instance}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Per-VM RPS (variance ⇒ hot VM)",
+      "description": "Each line is one worker VM. Large gaps between lines mean some workers are throttling while others have headroom.",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (instance)(rate(k6_http_reqs_total{runid=~\"$runid\"}[30s]))",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "time": { "from": "now-30m", "to": "now" }
+}

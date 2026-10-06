@@ -1,0 +1,35 @@
+version: 1
+runName: simple-5k
+
+target:
+  rps: 5000
+  durationSeconds: 300
+  rampUpSeconds: 60
+  rampDownSeconds: 30
+
+endpoints:
+  - id: trans-gif
+    method: GET
+    url: https://example.com/apc/trans.gif
+    weight: 1.0
+    pattern: keepalive-burst
+    # resolveToIP: 1.2.3.4   # optional: pin TCP connect to a specific IP
+    #                         # Host header + TLS SNI remain the original hostname
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  regions: [eastus2]
+  vmSize: Standard_F4s_v2
+  # initialVMCount is auto-derived: ceil(rps / 5000) total ÷ regions = 1 VM here
+  maxVMCount: 6
+  useSpot: true
+
+lifecycle:
+  ttlMinutes: 30
+  cleanupOnInterrupt: true

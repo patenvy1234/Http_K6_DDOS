@@ -1,0 +1,34 @@
+version: 1
+runName: attack-200k
+
+target:
+  rps: 200000
+  durationSeconds: 420
+  rampUpSeconds: 90
+  rampDownSeconds: 30
+
+endpoints:
+  - id: trans-gif
+    method: GET
+    url: https://example.com/apc/trans.gif
+    weight: 1.0
+    pattern: keepalive-burst
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  # initialVMCount is auto-derived: ceil(200000 / 5000) = 40 total ÷ 4 regions = 10/region
+  # maxVMCount is the TOTAL fleet ceiling across all regions (scale-out budget).
+  regions: [eastus2, westus2, westeurope, uksouth]
+  vmSize: Standard_F4s_v2
+  maxVMCount: 84
+  useSpot: true
+
+lifecycle:
+  ttlMinutes: 25
+  cleanupOnInterrupt: true

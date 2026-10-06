@@ -1,0 +1,36 @@
+version: 1
+runName: attack-500k
+
+target:
+  rps: 500000
+  durationSeconds: 420
+  rampUpSeconds: 90
+  rampDownSeconds: 30
+
+endpoints:
+  - id: hot-get
+    method: GET
+    url: https://example.com/v1/items
+    weight: 1.0
+    pattern: keepalive-burst
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  # regions: []  →  auto-expand to every region with available F4s_v2 quota.
+  # ceil(500000 / 5000) = 100 VMs spread evenly across all available regions.
+  # With 9 regions: ~12 VMs/region (vs 25/region on 4 regions) → lower spot pressure.
+  regions: []
+  vmSize: Standard_F4s_v2
+  # 120 = 20% headroom above the 100 VMs needed; allows scale-out on spot evictions.
+  maxVMCount: 120
+  useSpot: true
+
+lifecycle:
+  ttlMinutes: 35
+  cleanupOnInterrupt: true

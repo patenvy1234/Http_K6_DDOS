@@ -1,0 +1,37 @@
+version: 1
+runName: attack-400k-keepalive
+
+target:
+  rps: 400000
+  durationSeconds: 420
+  rampUpSeconds: 90
+  rampDownSeconds: 30
+
+endpoints:
+  - id: trans-gif-keepalive
+    method: GET
+    url: https://example.com/apc/trans.gif
+    weight: 1.0
+    pattern: keepalive-burst
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  # regions: []  ->  auto-expand to every region with available F4s_v2 quota.
+  # ceil(400000 / 5000) = 80 VMs spread across all available regions (~9/region on 9).
+  regions: []
+  vmSize: Standard_F4s_v2
+  # 120 = 50% headroom above the 80 needed; covers spot evictions + scale-out.
+  maxVMCount: 120
+  useSpot: true
+
+lifecycle:
+  # Monitor deadline = StartAt(now+5m) + ramp+duration+ramp(540s) + 3m = ~now+17m.
+  # ttl outlasts that so the deadman backstop fires only AFTER graceful teardown.
+  ttlMinutes: 25
+  cleanupOnInterrupt: true

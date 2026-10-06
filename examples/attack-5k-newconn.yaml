@@ -1,0 +1,33 @@
+version: 1
+runName: smoke-5k-newconn
+
+target:
+  rps: 5000
+  durationSeconds: 300
+  rampUpSeconds: 60
+  rampDownSeconds: 30
+
+endpoints:
+  - id: trans-gif-newconn
+    method: GET
+    url: https://example.com/apc/trans.gif
+    weight: 1.0
+    pattern: new-conn-flood
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  regions: [eastus2]
+  vmSize: Standard_F4s_v2
+  # auto-derive: ceil(5000 / 5000) = 1 VM
+  maxVMCount: 6
+  useSpot: true
+
+lifecycle:
+  ttlMinutes: 30
+  cleanupOnInterrupt: true

@@ -1,0 +1,20 @@
+[Unit]
+Description=DDOS - refresh Entra access token for k6 Prometheus remote_write
+Documentation=https://github.com/patenvy1234/Http_K6_DDOS
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+TimeoutStartSec=5min
+ExecStart=/usr/local/bin/ddos-token-refresh
+Restart=always
+RestartSec=5
+User=root
+# Token-refresh is lightweight; cap CPU/mem so it can't starve k6.
+CPUWeight=20
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

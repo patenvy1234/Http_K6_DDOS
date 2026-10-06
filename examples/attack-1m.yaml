@@ -1,0 +1,55 @@
+version: 1
+runName: full-1m-rps
+
+target:
+  rps: 1000000
+  durationSeconds: 600
+  rampUpSeconds: 120
+  rampDownSeconds: 60
+
+# All endpoints in a run must share one pattern so each VM can run a single
+# constant-arrival-rate k6 scenario with correctly-sized VU budgets.
+# Pattern choices (pick one variant per run):
+#   - keepalive-burst : connection reuse, sustained per-VU throughput
+#   - new-conn-flood  : new TCP+TLS per request (use perVmPublicIp egress)
+endpoints:
+  - id: hot-get
+    method: GET
+    url: https://example.com/v1/items
+    weight: 0.55
+    pattern: keepalive-burst
+
+  - id: write-post
+    method: POST
+    url: https://example.com/v1/orders
+    weight: 0.30
+    pattern: keepalive-burst
+    bodyBytes: 32768
+    headers:
+      content-type: application/json
+
+  - id: ping
+    method: GET
+    url: https://example.com/v1/ping
+    weight: 0.15
+    pattern: keepalive-burst
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  # initialVMCount is auto-derived: ceil(1000000 / 5000) = 200 total ÷ all regions = ~23/region
+  # regions: []  →  auto-expand to every region with available F4s_v2 quota.
+  # maxVMCount is the TOTAL fleet ceiling across all regions (scale-out budget).
+  regions: []
+  vmSize: Standard_F4s_v2
+  maxVMCount: 200
+  useSpot: true
+
+lifecycle:
+  ttlMinutes: 60
+  cleanupOnInterrupt: true

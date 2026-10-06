@@ -1,0 +1,46 @@
+[Unit]
+Description=DDOS k6 load-generation worker
+Documentation=https://github.com/patenvy1234/Http_K6_DDOS
+Wants=network-online.target
+Requires=ddos-token-refresh.service
+After=network-online.target ddos-token-refresh.service
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/ddos
+
+# Layered env files: runtime.env (rendered into cloud-init), tags.env (IMDS-derived
+# at boot), k6.env (Entra token, refreshed every ~50 min).
+EnvironmentFile=/etc/ddos/runtime.env
+EnvironmentFile=/etc/ddos/tags.env
+EnvironmentFile=/etc/ddos/k6.env
+
+# k6 / Go runtime tuning for high-RPS loads.
+Environment=GOGC=200
+LimitNOFILE=1048576
+LimitNPROC=1048576
+
+# Profile + scripts arrive via blob fetch (with retry) so this service can
+# start before the controller has finished uploading the bundle.
+ExecStartPre=/usr/local/bin/ddos-fetch-bundle
+ExecStartPre=/usr/local/bin/ddos-wait-for-start
+ExecStart=/usr/local/bin/k6 run \
+  --quiet \
+  --no-summary \
+  --compatibility-mode=base \
+  --tag runId=${DDOS_RUN_ID} \
+  --tag runName=${DDOS_RUN_NAME} \
+  --tag region=${DDOS_REGION} \
+  --tag instance=${DDOS_INSTANCE} \
+  /etc/ddos/runner.js
+
+Restart=on-failure
+RestartSec=10
+User=root
+
+# Stop the load cleanly on shutdown so k6 flushes final samples.
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

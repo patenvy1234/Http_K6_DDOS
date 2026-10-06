@@ -1,0 +1,96 @@
+#cloud-config
+# DDOS k6 worker bootstrap.
+# Rendered by internal/orchestrator/cloudinit/cloudinit.go.
+package_update: true
+package_upgrade: false
+
+packages:
+  - curl
+  - jq
+  - ca-certificates
+  - tar
+  - gzip
+
+users:
+  - name: {{ .AdminUsername }}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "{{ .SSHPublicKey }}"
+
+write_files:
+  - path: /etc/sysctl.d/99-ddos.conf
+    permissions: '0644'
+    content: |
+      {{ asset "sysctl/99-ddos.conf" | indent 6 }}
+
+  - path: /etc/security/limits.d/99-ddos.conf
+    permissions: '0644'
+    content: |
+      {{ asset "limits/99-ddos.conf" | indent 6 }}
+
+  - path: /etc/ddos/runtime.env
+    permissions: '0644'
+    content: |
+      DDOS_RUN_ID={{ .RunID }}
+      DDOS_RUN_NAME={{ .RunName }}
+      DDOS_STORAGE_ACCOUNT={{ .StorageAccount }}
+      DDOS_BLOB_CONTAINER={{ .BlobContainer }}
+      DDOS_BUNDLE_BLOB={{ .BundleBlob }}
+      DDOS_K6_VERSION={{ .K6Version }}
+      K6_PROMETHEUS_RW_SERVER_URL={{ .K6RemoteWriteURL }}
+      K6_PROMETHEUS_RW_PUSH_INTERVAL=10s
+      K6_PROMETHEUS_RW_HTTP_REQUEST_TIMEOUT=60s
+      K6_PROMETHEUS_RW_TREND_STATS="p(99)"
+      K6_OUT=experimental-prometheus-rw
+
+  - path: /usr/local/bin/ddos-imds-token
+    permissions: '0755'
+    content: |
+      {{ asset "scripts/ddos-imds-token.sh" | indent 6 }}
+
+  - path: /usr/local/bin/ddos-token-refresh
+    permissions: '0755'
+    content: |
+      {{ asset "scripts/ddos-token-refresh.sh" | indent 6 }}
+
+  - path: /usr/local/bin/ddos-install-k6
+    permissions: '0755'
+    content: |
+      {{ asset "scripts/ddos-install-k6.sh" | indent 6 }}
+
+  - path: /usr/local/bin/ddos-fetch-bundle
+    permissions: '0755'
+    content: |
+      {{ asset "scripts/ddos-fetch-bundle.sh" | indent 6 }}
+
+  - path: /usr/local/bin/ddos-bootstrap-tags
+    permissions: '0755'
+    content: |
+      {{ asset "scripts/ddos-bootstrap-tags.sh" | indent 6 }}
+
+  - path: /usr/local/bin/ddos-wait-for-start
+    permissions: '0755'
+    content: |
+      {{ asset "scripts/ddos-wait-for-start.sh" | indent 6 }}
+
+  - path: /etc/systemd/system/ddos-token-refresh.service
+    permissions: '0644'
+    content: |
+      {{ asset "units/ddos-token-refresh.service" | indent 6 }}
+
+  - path: /etc/systemd/system/ddos-worker.service
+    permissions: '0644'
+    content: |
+      {{ asset "units/ddos-worker.service" | indent 6 }}
+
+runcmd:
+  - mkdir -p /etc/ddos
+  - sysctl --system
+  - /usr/local/bin/ddos-install-k6
+  - /usr/local/bin/ddos-bootstrap-tags
+  - systemctl daemon-reload
+  - systemctl enable --now ddos-token-refresh.service
+  - systemctl enable --now ddos-worker.service
+
+final_message: "ddos worker bootstrap complete (run={{ .RunID }} in $UPTIME s)"

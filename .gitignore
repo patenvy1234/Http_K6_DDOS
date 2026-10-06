@@ -1,0 +1,39 @@
+# Binaries
+/ddos
+/ddos.exe
+/bin/
+/dist/
+
+# Go
+*.test
+*.out
+vendor/
+
+# Compiled bicep
+*.json.tmp
+**/compiled/
+infra/bicep/**/*.json
+!infra/bicep/**/*.parameters.json
+
+# Local config & state
+.ddos/
+*.local.yaml
+*.local.json
+~/.ddos/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Per-test run logs
+runs/
+*.txt
+*.diag.sh
+
+# Generated quota cache (contains subscription id/name — recreate via 'ddos refresh-quota')
+region-quota.yaml

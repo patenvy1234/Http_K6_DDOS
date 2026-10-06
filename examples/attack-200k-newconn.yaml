@@ -1,0 +1,41 @@
+version: 1
+runName: attack-200k-newconn
+
+target:
+  rps: 200000
+  durationSeconds: 2400
+  rampUpSeconds: 90
+  rampDownSeconds: 30
+
+endpoints:
+  - id: trans-gif-newconn
+    method: GET
+    url: https://example.com/apc/trans.gif
+    weight: 1.0
+    pattern: new-conn-flood
+
+trafficShaping:
+  discardResponseBodies: true
+  http2: false
+  insecureSkipTLSVerify: false
+  userAgents:
+    - ddos-loadgen/1.0
+
+fleet:
+  # regions: []  ->  auto-expand to every region with available F4s_v2 quota.
+  # ceil(200000 / 5000) = 40 VMs spread across all available regions (~5/region on 9).
+  # new-conn-flood: per-VM public IP gives each VM a full ~64K ephemeral port range;
+  # cloud-init sysctl (tcp_tw_reuse=1, fin_timeout=15, port_range 1024-65535) keeps
+  # 5K new-conn/s/VM sustainable without SNAT/port exhaustion.
+  regions: []
+  vmSize: Standard_F4s_v2
+  # 60 = 50% headroom above the 40 needed; covers spot evictions + scale-out for the
+  # higher per-VU handshake stalls inherent to new-conn-flood.
+  maxVMCount: 60
+  useSpot: true
+
+lifecycle:
+  # Monitor deadline = StartAt(now+5m) + ramp+duration+ramp(2520s) + 3m buffer = ~now+50m.
+  # ttl must outlast that so the deadman backstop fires only AFTER graceful teardown.
+  ttlMinutes: 60
+  cleanupOnInterrupt: true

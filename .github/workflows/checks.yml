@@ -1,0 +1,80 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - name: Test with race detection
+        run: go test -race ./... -count=1 -timeout=120s
+      - name: Vet
+        run: go vet ./...
+      - name: Build CLI
+        run: go build -trimpath ./cmd/ddos
+
+  assets:
+    name: Worker and infrastructure checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Test worker modules without network traffic
+        run: node --experimental-vm-modules --test tests/k6.test.mjs
+      - name: Check shell syntax
+        run: |
+          for script in cloud-init/scripts/*.sh; do
+            sed 's/\r$//' "$script" | bash -n
+          done
+      - name: Compile Bicep without deployment
+        run: |
+          for template in infra/bicep/*.bicep infra/bicep/modules/*.bicep; do
+            az bicep build --file "$template" --stdout > /dev/null
+          done
+
+  security:
+    name: Go vulnerability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - name: Scan reachable code and dependencies
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
